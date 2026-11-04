@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 
 type LineEvent = {
   type?: string;
+  replyToken?: string;
   source?: {
     userId?: string;
     type?: string;
@@ -44,19 +45,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid LINE webhook payload" }, { status: 400 });
   }
 
+  // วนลูปจัดการทุก Event ที่ส่งเข้ามา
   for (const event of payload.events) {
-    const userId = event.source?.userId;
-    const message = event.message?.type === "text" ? event.message.text : undefined;
+    if (event.type === "message" && event.message?.type === "text" && event.replyToken) {
+      const userText = event.message.text;
+      const replyToken = event.replyToken;
 
-    // Add game command handling here, using userId and message when available.
-    console.info("Received LINE event", {
-      type: event.type,
-      hasUserId: Boolean(userId),
-      hasTextMessage: Boolean(message),
-    });
+      // ตัวอย่าง: ตอบกลับข้อความสะท้อนกลับไปหาผู้ใช้
+      const replyMessage = `คุณพิมพ์มาว่า: "${userText}" (ระบบรับทราบแล้วครับ!)`;
+      await sendLineReply(replyToken, replyMessage);
+    }
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// ฟังก์ชันสำหรับส่งข้อความตอบกลับผ่าน LINE Messaging API
+async function sendLineReply(replyToken: string, text: string) {
+  const accessToken = process.env.CHANNEL_ACCESS_TOKEN;
+  if (!accessToken) {
+    console.error("CHANNEL_ACCESS_TOKEN is not configured");
+    return;
+  }
+
+  await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      replyToken: replyToken,
+      messages: [
+        {
+          type: "text",
+          text: text,
+        },
+      ],
+    }),
+  });
 }
 
 function isValidSignature(body: string, signature: string, channelSecret: string): boolean {
@@ -84,6 +111,7 @@ function isLineEvent(value: unknown): value is LineEvent {
 
   return (
     (event.type === undefined || typeof event.type === "string") &&
+    (event.replyToken === undefined || typeof event.replyToken === "string") &&
     (event.source === undefined ||
       (typeof event.source === "object" &&
         event.source !== null &&

@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoundStatus {
+  OPEN
+  CLOSED
+  SETTLED
+}
+
+enum BetTarget {
+  BANKER
+  PLAYER_1
+  PLAYER_2
+  PLAYER_3
+  PLAYER_4
+  PLAYER_5
+  PLAYER_6
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  PUSH
+}
+
+model User {
+  id          String   @id @default(cuid())
+  lineUserId  String   @unique
+  displayName String
+  credits     Int      @default(10000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bets        Bet[]
+}
+
+model GameRound {
+  id           String      @id @default(cuid())
+  status       RoundStatus @default(OPEN)
+  bankerScore  Int?
+  player1Score Int?
+  player2Score Int?
+  player3Score Int?
+  player4Score Int?
+  player5Score Int?
+  player6Score Int?
+  createdAt    DateTime    @default(now())
+  closedAt     DateTime?
+  settledAt    DateTime?
+  bets         Bet[]
+
+  @@index([status, createdAt])
+}
+
+model Bet {
+  id             String    @id @default(cuid())
+  userId         String
+  roundId        String
+  target         BetTarget
+  amount         Int
+  payout         Int       @default(0)
+  status         BetStatus @default(PENDING)
+  lineEventId    String?   @unique
+  createdAt      DateTime  @default(now())
+  settledAt      DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  round          GameRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+
+  @@index([roundId, target])
+  @@index([userId, createdAt])
+}

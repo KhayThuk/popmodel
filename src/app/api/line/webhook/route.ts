@@ -38,16 +38,21 @@ export async function POST(request: NextRequest) {
   const secret = process.env.LINE_CHANNEL_SECRET;
 
   if (!secret || !signature || !isValidSignature(rawBody, signature, secret)) {
-    return NextResponse.json({ error: "Invalid LINE signature" }, { status: 401 });
+    console.error(
+      !secret
+        ? "LINE_CHANNEL_SECRET is not configured"
+        : "Received LINE webhook with an invalid signature; events were ignored",
+    );
+    return NextResponse.json({ ok: true });
   }
 
   let events: LineEvent[];
   try {
     const payload: unknown = JSON.parse(rawBody);
-    if (!isRecord(payload) || !Array.isArray(payload.events)) {
+    if (!isRecord(payload) || !Array.isArray(payload.events) || !payload.events.every(isLineEvent)) {
       return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
     }
-    events = payload.events as LineEvent[];
+    events = payload.events;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -62,6 +67,8 @@ export async function POST(request: NextRequest) {
 }
 
 function isValidSignature(body: string, signature: string, secret: string): boolean {
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(signature)) return false;
+
   const expected = createHmac("sha256", secret).update(body).digest();
   let received: Buffer;
   try {
@@ -87,8 +94,8 @@ async function handleEvent(event: LineEvent): Promise<void> {
 }
 
 async function fetchDisplayName(userId: string): Promise<string> {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!token) throw new Error("LINE_CHANNEL_ACCESS_TOKEN is not configured");
+  const token = process.env.CHANNEL_ACCESS_TOKEN;
+  if (!token) throw new Error("CHANNEL_ACCESS_TOKEN is not configured");
 
   const response = await fetch(
     `https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`,
@@ -234,6 +241,8 @@ async function handleText(event: LineEvent, text: string): Promise<void> {
       textMessage(`รับเดิมพัน${targetNames[target]} ${amount.toLocaleString()} เครดิตแล้ว`),
     ]);
   }
+
+  return replyLine(replyToken, [textMessage(`ได้รับข้อความแล้ว: "${text}"`)]);
 }
 
 async function settleRound(scores: number[]) {
@@ -314,4 +323,21 @@ function textMessage(text: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isLineEvent(value: unknown): value is LineEvent {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.type === "string" &&
+    (value.replyToken === undefined || typeof value.replyToken === "string") &&
+    (value.webhookEventId === undefined || typeof value.webhookEventId === "string") &&
+    (value.source === undefined ||
+      (isRecord(value.source) &&
+        (value.source.userId === undefined || typeof value.source.userId === "string") &&
+        (value.source.type === undefined || typeof value.source.type === "string"))) &&
+    (value.message === undefined ||
+      (isRecord(value.message) &&
+        (value.message.type === undefined || typeof value.message.type === "string") &&
+        (value.message.text === undefined || typeof value.message.text === "string")))
+  );
 }

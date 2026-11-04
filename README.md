@@ -30,7 +30,7 @@ Starter สำหรับ Next.js App Router, Prisma และ PostgreSQL ท�
 ## ตั้งค่าและ Deploy
 
 1. ใช้ PostgreSQL ที่เข้าถึงได้จาก Vercel และตั้ง `DATABASE_URL` ใน local/Vercel
-2. คัดลอก `.env.example` เป็น `.env` แล้วตั้ง Messaging API access token/secret,
+2. ตั้ง `CHANNEL_ACCESS_TOKEN` และ `LINE_CHANNEL_SECRET` สำหรับ Messaging API พร้อม
    LINE Login channel ID/secret/callback URL และ LINE user IDs ของแอดมิน (คั่นด้วย comma)
 3. ติดตั้ง dependencies แล้วรัน `npm run db:generate` และ `npm run db:push`
    สำหรับ production ควรสร้างและ deploy Prisma migrations แทนการใช้ `db push`

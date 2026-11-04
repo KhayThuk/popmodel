@@ -17,8 +17,8 @@ export async function pushLine(
 }
 
 async function sendLine(url: string, body: unknown): Promise<void> {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!token) throw new Error("LINE_CHANNEL_ACCESS_TOKEN is not configured");
+  const token = process.env.CHANNEL_ACCESS_TOKEN;
+  if (!token) throw new Error("CHANNEL_ACCESS_TOKEN is not configured");
 
   const response = await fetch(url, {
     method: "POST",
